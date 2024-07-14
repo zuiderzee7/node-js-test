@@ -1,23 +1,28 @@
 const bcrypt = require('bcrypt');
 const { generateToken } = require('../utils/jwt');
-const db = require('../utils/db');
+const User = require('../models/User');
+
 
 exports.login = async (req, res) => {
     const { email, password } = req.body;
     try {
-        const results = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-        if (results.length === 0 || !bcrypt.compareSync(password, results[0].password)) {
-            return res.status(401).send('Unauthorized');
+        const user = await User.findOne({where: {email}});
+        if (!user) {
+            return res.status(401).send('로그인 실패.');
         }
-        const token = generateToken(results[0]);
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).send('로그인 실패..');
+        }
+        const token = generateToken(user);
         res.cookie('token', token, { httpOnly: true });
-        res.status(200).send('Login successful');
+        res.status(200).send('로그인 성공.');
     } catch (err) {
-        res.status(500).send('Internal Server Error');
+        res.status(500).send('에러 발생.');
     }
 };
 
 exports.logout = (req, res) => {
     res.clearCookie('token');
-    res.status(200).send('Logout successful');
+    res.status(200).send('로그아웃.');
 };
